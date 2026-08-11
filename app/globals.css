@@ -1,0 +1,79 @@
+@import "tailwindcss";
+
+@theme inline {
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+
+  --color-authentic: var(--authentic);
+  --color-authentic-foreground: var(--authentic-foreground);
+  --color-authentic-soft: var(--authentic-soft);
+
+  --color-fake: var(--fake);
+  --color-fake-foreground: var(--fake-foreground);
+  --color-fake-soft: var(--fake-soft);
+
+  --color-ambiguous: var(--ambiguous);
+  --color-ambiguous-foreground: var(--ambiguous-foreground);
+  --color-ambiguous-soft: var(--ambiguous-soft);
+
+  --radius-lg: 14px;
+  --radius-md: 10px;
+  --radius-sm: 8px;
+}
+
+:root {
+  --background: #f4f5fb;
+  --foreground: #1e2233;
+  --card: #ffffff;
+  --card-foreground: #1e2233;
+  --muted: #f1f2f8;
+  --muted-foreground: #6b7089;
+  --border: #e6e7f2;
+  --input: #e3e4f0;
+  --ring: #6d5ef6;
+
+  --primary: #5b4bf0;
+  --primary-foreground: #ffffff;
+  --primary-soft: #efedff;
+
+  --authentic: #16a06a;
+  --authentic-foreground: #ffffff;
+  --authentic-soft: #e8f6ef;
+
+  --fake: #d94a4a;
+  --fake-foreground: #ffffff;
+  --fake-soft: #fbeaea;
+
+  --ambiguous: #d99a2b;
+  --ambiguous-foreground: #ffffff;
+  --ambiguous-soft: #fdf3e2;
+}
+
+* {
+  border-color: var(--border);
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+}
+
+.num {
+  font-family: var(--font-mono);
+  font-feature-settings: "tnum";
+}
