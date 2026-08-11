@@ -1,0 +1,90 @@
+{
+  "red_neuronal_mlp": {
+    "modelo": "Red Neuronal MLP",
+    "umbral": 0.4586,
+    "accuracy": 0.8984,
+    "precision_falsa": 0.9322,
+    "recall_falsa": 0.8569,
+    "f1_falsa": 0.893,
+    "auc_roc": 0.9607,
+    "arquitectura": "17 -> Densa 32 ReLU -> Dropout -> Densa 16 ReLU -> Dropout -> Densa 1 Sigmoide",
+    "hiperparametros": {
+      "dropout": 0.3,
+      "optimizador": "Adam",
+      "learning_rate": 0.001,
+      "batch_size": 64,
+      "epocas_ejecutadas": 62,
+      "mejor_epoca": 50,
+      "perdida": "binary_crossentropy"
+    },
+    "parametros_entrenables": 1121,
+    "segundos_entrenamiento": 48.1,
+    "comparacion_dropout": [
+      {
+        "dropout": 0.0,
+        "epocas": 43,
+        "auc_ajuste": 0.9648,
+        "auc_validacion": 0.9617,
+        "f1_prueba": 0.8922,
+        "auc_prueba": 0.9606,
+        "segundos": 30.8
+      },
+      {
+        "dropout": 0.3,
+        "epocas": 58,
+        "auc_ajuste": 0.9574,
+        "auc_validacion": 0.9628,
+        "f1_prueba": 0.893,
+        "auc_prueba": 0.9607,
+        "segundos": 41.3
+      },
+      {
+        "dropout": 0.5,
+        "epocas": 33,
+        "auc_ajuste": 0.9492,
+        "auc_validacion": 0.9606,
+        "f1_prueba": 0.8896,
+        "auc_prueba": 0.9589,
+        "segundos": 24.9
+      }
+    ],
+    "importancia_permutacion": {
+      "flg": 0.1268,
+      "erc": 0.1027,
+      "lin": 0.1022,
+      "erl": 0.0901,
+      "flw": 0.0731,
+      "pos": 0.0287,
+      "bl": 0.0118,
+      "cz": 0.0075,
+      "cl": 0.0074,
+      "pr": 0.0065,
+      "pi": 0.0064,
+      "fo": 0.0046,
+      "cs": 0.0025,
+      "lt": 0.0022,
+      "hc": 0.002,
+      "ni": 0.0015,
+      "pic": 0.0004
+    },
+    "importancia_shap": {
+      "lin": 0.1605,
+      "erc": 0.1316,
+      "flg": 0.1275,
+      "erl": 0.127,
+      "flw": 0.0991,
+      "cz": 0.0316,
+      "pos": 0.0255,
+      "bl": 0.0225,
+      "cl": 0.0212,
+      "pr": 0.0134,
+      "pi": 0.0133,
+      "lt": 0.0091,
+      "fo": 0.0047,
+      "cs": 0.0047,
+      "ni": 0.0033,
+      "hc": 0.002,
+      "pic": 0.0014
+    }
+  }
+}

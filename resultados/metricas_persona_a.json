@@ -1,0 +1,71 @@
+{
+  "regresion_logistica": {
+    "modelo": "Regresion Logistica",
+    "umbral": 0.4706,
+    "accuracy": 0.8462,
+    "precision_falsa": 0.838,
+    "recall_falsa": 0.8543,
+    "f1_falsa": 0.8461,
+    "auc_roc": 0.9221,
+    "hiperparametros": {
+      "C": 1.0,
+      "penalty": "l1"
+    },
+    "f1_cv": 0.8408,
+    "importancia": {
+      "flg": 1.8795,
+      "flw": -1.6572,
+      "erl": -1.045,
+      "lin": -1.039,
+      "erc": -0.6489,
+      "pr": 0.5455,
+      "cz": 0.4889,
+      "cl": 0.4698,
+      "pi": -0.366,
+      "bl": -0.2889,
+      "fo": 0.2585,
+      "lt": -0.213,
+      "cs": -0.1047,
+      "pos": -0.0949,
+      "hc": -0.0555,
+      "pic": -0.052,
+      "ni": -0.0001
+    }
+  },
+  "arbol_decision": {
+    "modelo": "Arbol de Decision",
+    "umbral": 0.4684,
+    "accuracy": 0.8905,
+    "precision_falsa": 0.9312,
+    "recall_falsa": 0.8408,
+    "f1_falsa": 0.8837,
+    "auc_roc": 0.9462,
+    "hiperparametros": {
+      "criterion": "entropy",
+      "max_depth": 10,
+      "min_samples_leaf": 1
+    },
+    "f1_cv": 0.8775,
+    "profundidad": 10,
+    "n_hojas": 274,
+    "importancia": {
+      "lin": 0.3887,
+      "flg": 0.1887,
+      "erl": 0.186,
+      "flw": 0.0648,
+      "erc": 0.0577,
+      "lt": 0.05,
+      "bl": 0.0131,
+      "pos": 0.0126,
+      "pi": 0.0119,
+      "pr": 0.0097,
+      "cl": 0.0054,
+      "fo": 0.0035,
+      "cs": 0.0033,
+      "cz": 0.0024,
+      "hc": 0.0012,
+      "ni": 0.001,
+      "pic": 0.0
+    }
+  }
+}

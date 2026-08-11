@@ -1,0 +1,243 @@
+{
+  "n_modelos_comparados": 5,
+  "n_registros_prueba": 12849,
+  "metricas_umbral_05": [
+    {
+      "modelo": "Regresion Logistica",
+      "umbral": 0.5,
+      "accuracy": 0.8466,
+      "precision_falsa": 0.8471,
+      "recall_falsa": 0.8419,
+      "f1_falsa": 0.8445,
+      "auc_roc": 0.9221
+    },
+    {
+      "modelo": "Arbol de Decision",
+      "umbral": 0.5,
+      "accuracy": 0.8921,
+      "precision_falsa": 0.9513,
+      "recall_falsa": 0.824,
+      "f1_falsa": 0.8831,
+      "auc_roc": 0.9462
+    },
+    {
+      "modelo": "Random Forest",
+      "umbral": 0.5,
+      "accuracy": 0.9016,
+      "precision_falsa": 0.9465,
+      "recall_falsa": 0.8491,
+      "f1_falsa": 0.8952,
+      "auc_roc": 0.9619
+    },
+    {
+      "modelo": "Gradient Boosting",
+      "umbral": 0.5,
+      "accuracy": 0.9012,
+      "precision_falsa": 0.9432,
+      "recall_falsa": 0.8517,
+      "f1_falsa": 0.8951,
+      "auc_roc": 0.9624
+    },
+    {
+      "modelo": "Red Neuronal MLP",
+      "umbral": 0.5,
+      "accuracy": 0.8977,
+      "precision_falsa": 0.9476,
+      "recall_falsa": 0.8397,
+      "f1_falsa": 0.8904,
+      "auc_roc": 0.9607
+    }
+  ],
+  "metricas_umbral_optimo": [
+    {
+      "modelo": "Random Forest",
+      "umbral": 0.5233,
+      "accuracy": 0.9027,
+      "precision_falsa": 0.9551,
+      "recall_falsa": 0.843,
+      "f1_falsa": 0.8956,
+      "auc_roc": 0.9619
+    },
+    {
+      "modelo": "Gradient Boosting",
+      "umbral": 0.4929,
+      "accuracy": 0.9014,
+      "precision_falsa": 0.9417,
+      "recall_falsa": 0.8535,
+      "f1_falsa": 0.8955,
+      "auc_roc": 0.9624
+    },
+    {
+      "modelo": "Red Neuronal MLP",
+      "umbral": 0.4586,
+      "accuracy": 0.8984,
+      "precision_falsa": 0.9322,
+      "recall_falsa": 0.8569,
+      "f1_falsa": 0.893,
+      "auc_roc": 0.9607
+    },
+    {
+      "modelo": "Arbol de Decision",
+      "umbral": 0.4684,
+      "accuracy": 0.8905,
+      "precision_falsa": 0.9312,
+      "recall_falsa": 0.8408,
+      "f1_falsa": 0.8837,
+      "auc_roc": 0.9462
+    },
+    {
+      "modelo": "Regresion Logistica",
+      "umbral": 0.4706,
+      "accuracy": 0.8462,
+      "precision_falsa": 0.838,
+      "recall_falsa": 0.8543,
+      "f1_falsa": 0.8461,
+      "auc_roc": 0.9221
+    }
+  ],
+  "umbrales": {
+    "Regresion Logistica": 0.4706,
+    "Arbol de Decision": 0.4684,
+    "Random Forest": 0.5233,
+    "Gradient Boosting": 0.4929,
+    "Red Neuronal MLP": 0.4586
+  },
+  "mejor_por_f1": "Random Forest",
+  "errores": [
+    {
+      "modelo": "Regresion Logistica",
+      "falsos_negativos": 926,
+      "falsos_positivos": 1050,
+      "errores_totales": 1976,
+      "pct_falsas_no_detectadas": 14.57
+    },
+    {
+      "modelo": "Arbol de Decision",
+      "falsos_negativos": 1012,
+      "falsos_positivos": 395,
+      "errores_totales": 1407,
+      "pct_falsas_no_detectadas": 15.92
+    },
+    {
+      "modelo": "Random Forest",
+      "falsos_negativos": 998,
+      "falsos_positivos": 252,
+      "errores_totales": 1250,
+      "pct_falsas_no_detectadas": 15.7
+    },
+    {
+      "modelo": "Gradient Boosting",
+      "falsos_negativos": 931,
+      "falsos_positivos": 336,
+      "errores_totales": 1267,
+      "pct_falsas_no_detectadas": 14.65
+    },
+    {
+      "modelo": "Red Neuronal MLP",
+      "falsos_negativos": 910,
+      "falsos_positivos": 396,
+      "errores_totales": 1306,
+      "pct_falsas_no_detectadas": 14.31
+    }
+  ],
+  "mcnemar_por_pares": [
+    {
+      "modelo_A": "Regresion Logistica",
+      "modelo_B": "Arbol de Decision",
+      "solo_acierta_A": 597,
+      "solo_acierta_B": 1166,
+      "desacuerdos": 1763,
+      "valor_p": 0.0,
+      "significativa": "si"
+    },
+    {
+      "modelo_A": "Regresion Logistica",
+      "modelo_B": "Random Forest",
+      "solo_acierta_A": 471,
+      "solo_acierta_B": 1197,
+      "desacuerdos": 1668,
+      "valor_p": 0.0,
+      "significativa": "si"
+    },
+    {
+      "modelo_A": "Regresion Logistica",
+      "modelo_B": "Gradient Boosting",
+      "solo_acierta_A": 417,
+      "solo_acierta_B": 1126,
+      "desacuerdos": 1543,
+      "valor_p": 0.0,
+      "significativa": "si"
+    },
+    {
+      "modelo_A": "Regresion Logistica",
+      "modelo_B": "Red Neuronal MLP",
+      "solo_acierta_A": 385,
+      "solo_acierta_B": 1055,
+      "desacuerdos": 1440,
+      "valor_p": 0.0,
+      "significativa": "si"
+    },
+    {
+      "modelo_A": "Arbol de Decision",
+      "modelo_B": "Random Forest",
+      "solo_acierta_A": 231,
+      "solo_acierta_B": 388,
+      "desacuerdos": 619,
+      "valor_p": 0.0,
+      "significativa": "si"
+    },
+    {
+      "modelo_A": "Arbol de Decision",
+      "modelo_B": "Gradient Boosting",
+      "solo_acierta_A": 282,
+      "solo_acierta_B": 422,
+      "desacuerdos": 704,
+      "valor_p": 0.0,
+      "significativa": "si"
+    },
+    {
+      "modelo_A": "Arbol de Decision",
+      "modelo_B": "Red Neuronal MLP",
+      "solo_acierta_A": 378,
+      "solo_acierta_B": 479,
+      "desacuerdos": 857,
+      "valor_p": 0.000627,
+      "significativa": "si"
+    },
+    {
+      "modelo_A": "Random Forest",
+      "modelo_B": "Gradient Boosting",
+      "solo_acierta_A": 234,
+      "solo_acierta_B": 217,
+      "desacuerdos": 451,
+      "valor_p": 0.45124,
+      "significativa": "no"
+    },
+    {
+      "modelo_A": "Random Forest",
+      "modelo_B": "Red Neuronal MLP",
+      "solo_acierta_A": 330,
+      "solo_acierta_B": 274,
+      "desacuerdos": 604,
+      "valor_p": 0.025146,
+      "significativa": "si"
+    },
+    {
+      "modelo_A": "Gradient Boosting",
+      "modelo_B": "Red Neuronal MLP",
+      "solo_acierta_A": 297,
+      "solo_acierta_B": 258,
+      "desacuerdos": 555,
+      "valor_p": 0.106658,
+      "significativa": "no"
+    }
+  ],
+  "cuentas_que_todos_fallan": 583,
+  "variables_consenso_top5": [
+    "erc",
+    "erl",
+    "flg",
+    "flw",
+    "lin"
+  ]
+}
