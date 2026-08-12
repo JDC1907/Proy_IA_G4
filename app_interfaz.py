@@ -2,13 +2,17 @@
 Interfaz grafica — Clasificacion de cuentas de Instagram (autenticas / falsas)
 CCPG1044 Inteligencia Artificial — Grupo N.4 — ESPOL
 
+Aplicacion web propia (Flask + HTML/CSS/JS), sin depender del theming de terceros:
+el backend reutiliza exactamente la misma logica de preprocesamiento, validacion,
+clasificacion (UC1/UC2) y explicacion SHAP (UC3) que el resto del proyecto.
+
 Ejecucion local:
     python app_interfaz.py
-    (abre automaticamente http://127.0.0.1:7860 en el navegador)
+    (abre http://127.0.0.1:7860 — ábrelo manualmente en el navegador)
 
-Ejecucion en Google Colab:
-    !python app_interfaz.py --publica
-    (genera un enlace publico temporal)
+Ejecucion visible en la red local (para que otros equipos de la feria se conecten):
+    python app_interfaz.py --publica
+    (queda disponible en http://<tu-ip-local>:7860)
 
 La carpeta del proyecto se busca en este orden:
     1. Variable de entorno PROYECTO_IA_CARPETA
@@ -25,16 +29,12 @@ import joblib
 import numpy as np
 import pandas as pd
 
-import matplotlib
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
-
-import gradio as gr
+from flask import Flask, jsonify, render_template, request, send_file
 
 
-# ----------------------------------------------------------------------------
+# ============================================================================
 # 1. Localizacion de la carpeta del proyecto
-# ----------------------------------------------------------------------------
+# ============================================================================
 
 def localizar_carpeta(ruta_indicada=None):
     """Busca la carpeta que contiene split/particion.npz y resultados/."""
@@ -58,7 +58,8 @@ def localizar_carpeta(ruta_indicada=None):
 
 parser = argparse.ArgumentParser(add_help=True)
 parser.add_argument('--carpeta', default=None, help='Ruta de la carpeta del proyecto')
-parser.add_argument('--publica', action='store_true', help='Genera un enlace publico (Colab)')
+parser.add_argument('--publica', action='store_true',
+                    help='Escucha en 0.0.0.0 para que otros equipos de la red local se conecten')
 parser.add_argument('--puerto', type=int, default=7860)
 ARGS, _ = parser.parse_known_args()
 
@@ -68,9 +69,9 @@ RUTA_RES = os.path.join(CARPETA, 'resultados')
 print(f'Carpeta del proyecto: {CARPETA}')
 
 
-# ----------------------------------------------------------------------------
+# ============================================================================
 # 2. Carga de datos, escalador y modelos entrenados
-# ----------------------------------------------------------------------------
+# ============================================================================
 
 _datos = np.load(os.path.join(RUTA_SPLIT, 'particion.npz'), allow_pickle=True)
 VARIABLES = [str(v) for v in _datos['variables']]
@@ -95,28 +96,45 @@ DICCIONARIO = {
     'flw': 'Seguidores (followers)',
     'flg': 'Cuentas seguidas (following)',
     'bl': 'Longitud de la biografia (caracteres)',
-    'pic': 'Tiene foto de perfil (1 = si, 0 = no)',
-    'lin': 'Tiene enlace externo en la biografia (1 = si, 0 = no)',
+    'pic': 'Tiene foto de perfil',
+    'lin': 'Tiene enlace externo en la biografia',
     'cl': 'Longitud promedio del texto de las publicaciones',
-    'cz': 'Proporcion de publicaciones sin texto (0 a 1)',
-    'ni': 'Proporcion de publicaciones que no son imagen (0 a 1)',
+    'cz': 'Proporcion de publicaciones sin texto',
+    'ni': 'Proporcion de publicaciones que no son imagen',
     'erl': 'Tasa de engagement por likes',
     'erc': 'Tasa de engagement por comentarios',
-    'lt': 'Proporcion de publicaciones con ubicacion (0 a 1)',
+    'lt': 'Proporcion de publicaciones con ubicacion',
     'hc': 'Promedio de hashtags por publicacion',
     'pr': 'Promedio de cuentas etiquetadas por publicacion',
     'fo': 'Promedio de menciones por publicacion',
-    'cs': 'Similitud promedio entre los textos de las publicaciones (0 a 1)',
+    'cs': 'Similitud promedio entre los textos de las publicaciones',
     'pi': 'Intervalo promedio entre publicaciones (horas)',
 }
 
+# Los 17 atributos agrupados por naturaleza (icono, titulo, subtitulo, claves)
+GRUPOS = [
+    ('👥', 'Audiencia', 'Tamano y equilibrio de la comunidad', ['flw', 'flg']),
+    ('🪪', 'Perfil', 'Elementos declarativos de la cuenta', ['pic', 'lin', 'bl']),
+    ('📊', 'Actividad', 'Volumen y ritmo de publicacion', ['pos', 'pi']),
+    ('⚡', 'Engagement', 'Respuesta real de la audiencia', ['erl', 'erc']),
+    ('📝', 'Contenido', 'Como son las publicaciones', ['cl', 'cz', 'ni', 'hc']),
+    ('🔗', 'Interaccion', 'Referencias a terceros y consistencia', ['pr', 'fo', 'lt', 'cs']),
+]
+
+VAR_ICONOS = {
+    'pos': '📝', 'flw': '👥', 'flg': '➕', 'bl': '📄', 'pic': '🖼️', 'lin': '🔗',
+    'cl': '✏️', 'cz': '🚫', 'ni': '🎞️', 'erl': '❤️', 'erc': '💬', 'lt': '📍',
+    'hc': '#️⃣', 'pr': '🏷️', 'fo': '📣', 'cs': '🔁', 'pi': '⏱️',
+}
+
 VARS_ENTERAS = ['pos', 'flw', 'flg', 'bl', 'pic', 'lin']
+VARS_BINARIAS = ['pic', 'lin']
 VARS_PROPORCION = ['pic', 'lin', 'cz', 'ni', 'lt', 'cs']
 
-REFERENCIA = pd.DataFrame({
-    'mediana_autenticas': X_train[y_train == 0].median(),
-    'mediana_falsas': X_train[y_train == 1].median(),
-}).round(3)
+MEDIANA_AUT = X_train[y_train == 0].median()
+MEDIANA_FAL = X_train[y_train == 1].median()
+ORDENADOS_AUT = {v: np.sort(X_train.loc[y_train == 0, v].values) for v in VARIABLES}
+ORDENADOS_FAL = {v: np.sort(X_train.loc[y_train == 1, v].values) for v in VARIABLES}
 
 MODELOS = {}
 for clave, archivo, nombre in [
@@ -156,6 +174,14 @@ UMBRAL = MODELOS[PRINCIPAL]['umbral']
 print(f'Modelos cargados: {len(MODELOS)} | Principal: {MODELOS[PRINCIPAL]["nombre"]} '
       f'(umbral {UMBRAL:.4f})')
 
+MODEL_ICONOS = {
+    'Regresion Logistica': 'Σ',
+    'Arbol de Decision': '🌳',
+    'Random Forest': '🌲',
+    'Gradient Boosting': '📈',
+    'Red Neuronal MLP': '🧠',
+}
+
 try:
     import shap
     EXPLICADOR = shap.TreeExplainer(MODELOS[PRINCIPAL]['modelo'])
@@ -165,9 +191,9 @@ except Exception as exc:
           'se usara la importancia global del modelo.')
 
 
-# ----------------------------------------------------------------------------
+# ============================================================================
 # 3. Logica: preprocesamiento, validacion (UC1), clasificacion (UC2), explicacion (UC3)
-# ----------------------------------------------------------------------------
+# ============================================================================
 
 def preprocesar(valores):
     fila = pd.DataFrame([[float(valores[v]) for v in VARIABLES]], columns=VARIABLES)
@@ -178,27 +204,27 @@ def preprocesar(valores):
 
 
 def validar(valores):
-    """UC1: tipo y rango de los 17 atributos."""
+    """UC1: verifica tipo y rango de los 17 atributos."""
     errores, advertencias = [], []
     for v in VARIABLES:
         bruto = valores.get(v)
         if bruto is None or bruto == '':
-            errores.append(f'{v} ({DICCIONARIO[v]}): falta el valor.')
+            errores.append(f'<b>{v}</b> ({DICCIONARIO[v]}): falta el valor.')
             continue
         try:
             valor = float(bruto)
         except (TypeError, ValueError):
-            errores.append(f'{v}: "{bruto}" no es un numero.')
+            errores.append(f'<b>{v}</b>: "{bruto}" no es un numero.')
             continue
         if not np.isfinite(valor):
-            errores.append(f'{v}: el valor no es finito.')
+            errores.append(f'<b>{v}</b>: el valor no es finito.')
             continue
         if valor < 0:
-            errores.append(f'{v}: no puede ser negativo (recibido {valor:g}).')
+            errores.append(f'<b>{v}</b>: no puede ser negativo (recibido {valor:g}).')
         if v in VARS_PROPORCION and valor > 1:
-            errores.append(f'{v}: debe estar entre 0 y 1 (recibido {valor:g}).')
+            errores.append(f'<b>{v}</b>: debe estar entre 0 y 1 (recibido {valor:g}).')
         elif v in VARS_ENTERAS and valor != int(valor):
-            advertencias.append(f'{v}: se esperaba un entero, se recibio {valor:g}.')
+            advertencias.append(f'<b>{v}</b>: se esperaba un entero, se recibio {valor:g}.')
 
     if not errores:
         if float(valores['pos']) == 0 and float(valores['erl']) > 0:
@@ -209,8 +235,9 @@ def validar(valores):
         for v in VARIABLES:
             maximo = float(X_train[v].max())
             if float(valores[v]) > maximo:
-                advertencias.append(f'{v} supera el maximo visto en entrenamiento ({maximo:,.2f}); '
-                                    'la prediccion es una extrapolacion.')
+                advertencias.append(
+                    f'<b>{v}</b> supera el maximo visto en entrenamiento ({maximo:,.0f}); '
+                    'la prediccion es una extrapolacion.')
     return errores, advertencias
 
 
@@ -232,127 +259,353 @@ def nivel_confianza(margen):
 
 def aportes_shap(fila):
     if EXPLICADOR is None:
-        importancias = getattr(MODELOS[PRINCIPAL]['modelo'], 'feature_importances_', None)
-        return np.zeros(len(VARIABLES)) if importancias is None else np.asarray(importancias)
+        imp = getattr(MODELOS[PRINCIPAL]['modelo'], 'feature_importances_', None)
+        return np.zeros(len(VARIABLES)) if imp is None else np.asarray(imp)
     valores = np.array(EXPLICADOR.shap_values(fila, check_additivity=False))
     if valores.ndim == 3:
         valores = valores[:, :, 1]
     return valores[0]
 
 
-# ----------------------------------------------------------------------------
-# 4. Presentacion
-# ----------------------------------------------------------------------------
+def percentil(valor, ordenados):
+    """Fraccion (0 a 1) de una poblacion ordenada que queda por debajo de 'valor'."""
+    return float(np.searchsorted(ordenados, valor) / max(len(ordenados), 1))
 
-TARJETA = """
-<div style="border-radius:12px;padding:18px 22px;background:{fondo};
-            border-left:10px solid {borde};font-family:system-ui,sans-serif">
-  <div style="font-size:13px;letter-spacing:1.5px;color:#555">RESULTADO DEL ANALISIS</div>
-  <div style="font-size:30px;font-weight:700;color:{borde};margin:6px 0">{etiqueta}</div>
-  <div style="font-size:15px;color:#333">
-     Probabilidad de que la cuenta sea falsa: <b>{prob:.1%}</b><br>
-     Umbral de decision del modelo: {umbral:.3f}<br>
-     Nivel de confianza: <b>{confianza}</b><br>
-     Consenso: <b>{consenso} de {total}</b> modelos coinciden
-  </div>
-  {aviso}
+
+def descriptor_percentil(frac):
+    pct = frac * 100
+    if pct >= 90:
+        return 'Muy por encima del promedio'
+    if pct >= 60:
+        return 'Por encima del promedio'
+    if pct > 40:
+        return 'Dentro del promedio'
+    if pct > 10:
+        return 'Por debajo del promedio'
+    return 'Muy por debajo del promedio'
+
+
+def _fmt(v):
+    v = float(v)
+    return f'{v:,.0f}' if (abs(v) >= 100 or v.is_integer()) else f'{v:,.2f}'
+
+
+def formatear(variable, valor):
+    if variable in VARS_BINARIAS:
+        return 'Si' if float(valor) >= 0.5 else 'No'
+    return _fmt(valor)
+
+
+# ============================================================================
+# 4. Presentacion (fragmentos HTML que consume el frontend)
+# ============================================================================
+
+ESTADO_VACIO = '''
+<div class="empty-state">
+  <div class="empty-icon">🔍</div>
+  <div>Completa los datos de la cuenta y presiona <b>Analizar cuenta</b>,
+  o prueba un ejemplo rápido arriba.</div>
 </div>
-"""
+'''
 
-AVISO_DUDA = """
-  <div style="margin-top:12px;padding:10px 14px;background:#FFF4CE;border-radius:8px;
-              font-size:14px;color:#5B4A00">
-     Las senales de esta cuenta no son concluyentes. Se recomienda revision manual
-     antes de tomar una decision comercial.
-  </div>
-"""
-
-TARJETA_ERROR = """
-<div style="border-radius:12px;padding:18px 22px;background:#FDECEA;border-left:10px solid #C0392B;
-            font-family:system-ui,sans-serif">
-  <div style="font-size:22px;font-weight:700;color:#C0392B">Datos invalidos</div>
-  <div style="font-size:14px;color:#333;margin-top:8px">
-     Corrija los siguientes puntos antes de continuar:
-     <ul>{lista}</ul>
-  </div>
-</div>
-"""
+RESUMEN_LOTE_VACIO = '<div class="empty-state small">Aún no se ha analizado ningún archivo por lotes.</div>'
 
 
-def figura_aportes(tabla):
-    d = tabla.sort_values('aporte')
-    fig, ax = plt.subplots(figsize=(7.5, 0.42 * len(d) + 1.4))
-    colores = ['#C0392B' if v > 0 else '#27AE60' for v in d['aporte']]
-    etiquetas = [f"{r.variable} = {r.valor:,.2f}" for r in d.itertuples()]
-    ax.barh(etiquetas, d['aporte'], color=colores)
-    ax.axvline(0, color='#333', lw=1)
-    ax.set_xlabel('Aporte a la decision   (rojo: hacia FALSA · verde: hacia AUTENTICA)')
-    ax.set_title('Variables que mas influyeron', fontsize=11)
-    ax.grid(axis='x', alpha=0.3)
-    fig.tight_layout()
-    return fig
+def render_error(errores):
+    lista = ''.join(f'<li>{e}</li>' for e in errores)
+    return f'''
+    <div class="card verdict-card border-danger">
+      <div class="verdict-icon">⚠️</div>
+      <div class="verdict-eyebrow">DATOS INVÁLIDOS</div>
+      <div class="verdict-label text-danger">Corrige los siguientes puntos</div>
+      <ul class="error-list">{lista}</ul>
+    </div>
+    '''
 
 
-def analizar(*entradas):
-    """Funcion principal de la interfaz: UC1 + UC2 + UC3."""
-    valores = dict(zip(VARIABLES, entradas))
+def render_veredicto(etiqueta, prob_mostrada, umbral_mostrado, confianza, coinciden, total, advertencias):
+    es_autentica = etiqueta == 'AUTENTICA'
+    clase = 'success' if es_autentica else 'danger'
+    icono = '🛡️' if es_autentica else '🚩'
+    etiqueta_txt = 'auténtica' if es_autentica else 'falsa'
 
+    if confianza == 'ALTA' and coinciden == total:
+        evidencia = f'Los modelos coinciden en que esta cuenta es {etiqueta_txt}.'
+    elif coinciden == total:
+        evidencia = f'Los {total} modelos coinciden, aunque la señal es de confianza {confianza.lower()}.'
+    else:
+        evidencia = f'{coinciden} de {total} modelos coinciden en este veredicto.'
+
+    aviso_baja = ''
+    if confianza == 'BAJA':
+        aviso_baja = ('<div class="soft-warning">Las señales de esta cuenta no son concluyentes. '
+                      'Se recomienda revisión manual antes de tomar una decisión comercial.</div>')
+
+    aviso_datos = ''
+    if advertencias:
+        items = ''.join(f'<li>{a}</li>' for a in advertencias)
+        aviso_datos = f'<div class="soft-warning"><b>Advertencias sobre los datos</b><ul>{items}</ul></div>'
+
+    margen = abs(prob_mostrada - umbral_mostrado)
+    return f'''
+    <div class="card verdict-card border-{clase}">
+      <div class="verdict-icon">{icono}</div>
+      <div class="verdict-eyebrow">VEREDICTO FINAL</div>
+      <div class="verdict-label text-{clase}">CUENTA {etiqueta}</div>
+      <div class="verdict-evidence bg-{clase}-soft text-{clase}">
+        <span class="dot dot-{clase}"></span> Evidencia {confianza.lower()} · {evidencia}
+      </div>
+      <div class="verdict-stats">
+        <div><div class="stat-value">{prob_mostrada:.1%}</div>
+             <div class="stat-label">Probabilidad de {etiqueta_txt}</div></div>
+        <div><div class="stat-value">{umbral_mostrado:.1%}</div>
+             <div class="stat-label">Umbral de decisión ({MODELOS[PRINCIPAL]['nombre']})</div></div>
+        <div><div class="stat-value">±{margen:.1%}</div>
+             <div class="stat-label">Margen sobre el umbral</div></div>
+      </div>
+      {aviso_baja}
+      {aviso_datos}
+    </div>
+    '''
+
+
+def render_gauge(p_autentica, umbral_autentica, confianza, margen):
+    pct = max(0.0, min(100.0, p_autentica * 100))
+    umbral_pct = max(0.0, min(100.0, umbral_autentica * 100))
+    if confianza == 'BAJA':
+        zona, zona_clase = 'Zona de incertidumbre', 'warning'
+    elif p_autentica >= umbral_autentica:
+        zona, zona_clase = 'Hacia AUTÉNTICA', 'success'
+    else:
+        zona, zona_clase = 'Hacia FALSA', 'danger'
+
+    return f'''
+    <div class="card">
+      <div class="gauge-title">Puntaje del modelo
+        <span class="gauge-hint">(más a la derecha = más auténtica)</span></div>
+      <div class="gauge-wrap">
+        <div class="gauge-pointer" style="left:{pct:.2f}%">
+          <div class="gauge-pointer-value">{pct:.1f}%</div>
+          <div class="gauge-pointer-line"></div>
+        </div>
+        <div class="gauge-track">
+          <div class="gauge-threshold" style="left:{umbral_pct:.2f}%"></div>
+        </div>
+      </div>
+      <div class="gauge-scale"><span>0%</span><span>50%</span><span>100%</span></div>
+      <div class="gauge-zones">
+        <div class="zone zone-danger">Hacia FALSA</div>
+        <div class="zone zone-warning">Zona de incertidumbre<br><span>±{margen*100:.1f}%</span></div>
+        <div class="zone zone-success">Hacia AUTÉNTICA</div>
+      </div>
+      <div class="gauge-current bg-{zona_clase}-soft text-{zona_clase}">{zona}</div>
+    </div>
+    '''
+
+
+def render_consenso(votos, etiqueta_principal):
+    tarjetas = []
+    for v in votos:
+        clase = 'success' if v['etiqueta'] == 'AUTENTICA' else 'danger'
+        marca = '✓' if v['etiqueta'] == 'AUTENTICA' else '✕'
+        p_aut = 1 - v['probabilidad']
+        icono = MODEL_ICONOS.get(v['nombre'], '🤖')
+        tarjetas.append(f'''
+        <div class="consensus-card border-{clase}">
+          <div class="consensus-icon">{icono}</div>
+          <div class="consensus-name">{v['nombre']}</div>
+          <div class="consensus-prob">{p_aut:.1%}</div>
+          <div class="badge bg-{clase}-soft text-{clase}">{marca} {v['etiqueta']}</div>
+        </div>''')
+    coinciden = sum(1 for v in votos if v['etiqueta'] == etiqueta_principal)
+    return f'''
+    <div class="card">
+      <div class="section-title">Consenso de modelos ({len(votos)})</div>
+      <div class="consensus-grid">{''.join(tarjetas)}</div>
+      <div class="consensus-summary">{coinciden} de {len(votos)} modelos clasifican esta cuenta como
+        <b>{etiqueta_principal.lower()}</b>.</div>
+    </div>
+    '''
+
+
+def render_features(tabla_top):
+    max_abs = float(tabla_top['aporte'].abs().max()) if len(tabla_top) else 0.0
+    tarjetas = []
+    for r in tabla_top.itertuples():
+        bajo_impacto = max_abs > 0 and abs(r.aporte) < 0.15 * max_abs
+        if bajo_impacto:
+            clase, texto_badge = 'warning', 'Impacto bajo'
+        elif r.aporte > 0:
+            clase, texto_badge = 'danger', 'Aporta a FALSA'
+        else:
+            clase, texto_badge = 'success', 'Aporta a AUTÉNTICA'
+        flecha = '↑' if r.valor >= float(X_train[r.variable].median()) else '↓'
+        icono = VAR_ICONOS.get(r.variable, '🔹')
+        p_aut = percentil(r.valor, ORDENADOS_AUT[r.variable])
+        contexto = (f'Más alto que el {p_aut:.0%} de las cuentas auténticas' if p_aut >= 0.5
+                    else f'Más bajo que el {1 - p_aut:.0%} de las cuentas auténticas')
+        tarjetas.append(f'''
+        <div class="feature-card border-{clase}">
+          <div class="feature-head">
+            <span class="feature-var">{icono} {r.variable}</span>
+            <span class="feature-arrow">{flecha}</span>
+          </div>
+          <div class="feature-value">{formatear(r.variable, r.valor)}</div>
+          <div class="feature-desc">{r.descripcion}. {contexto}.</div>
+          <div class="badge small bg-{clase}-soft text-{clase}">{texto_badge}</div>
+        </div>''')
+    return f'''
+    <div class="card">
+      <div class="section-title">Qué señales influyeron en la decisión</div>
+      <div class="section-caption">Las variables con mayor impacto en el resultado, para esta cuenta</div>
+      <div class="feature-grid">{''.join(tarjetas)}</div>
+      <div class="legend">
+        <span><span class="dot dot-success"></span> Aporta a auténtica</span>
+        <span><span class="dot dot-danger"></span> Aporta a falsa</span>
+        <span><span class="dot dot-warning"></span> Impacto bajo</span>
+      </div>
+    </div>
+    '''
+
+
+def render_percentiles(tabla_top):
+    filas = []
+    for r in tabla_top.itertuples():
+        frac = percentil(r.valor, ORDENADOS_AUT[r.variable])
+        filas.append(f'''
+        <div class="percentile-row">
+          <div class="percentile-label">{r.descripcion}</div>
+          <div class="percentile-track">
+            <div class="percentile-fill" style="width:{frac*100:.1f}%"></div>
+            <div class="percentile-marker" style="left:50%"></div>
+          </div>
+          <div class="percentile-meta">{frac*100:.0f}° · {descriptor_percentil(frac)}</div>
+        </div>''')
+    return f'''
+    <div class="card">
+      <div class="section-title">Comparación con cuentas típicas</div>
+      <div class="section-caption">Percentil del valor ingresado frente a las cuentas auténticas de entrenamiento</div>
+      {''.join(filas)}
+    </div>
+    '''
+
+
+def render_tabla_detalle(tabla):
+    filas = []
+    for r in tabla.itertuples():
+        clase = 'danger' if r.aporte > 0 else 'success'
+        filas.append(f'''
+        <tr>
+          <td><b>{r.variable}</b><br><span class="muted">{r.descripcion}</span></td>
+          <td class="num">{formatear(r.variable, r.valor)}</td>
+          <td class="num muted">{formatear(r.variable, r.tipico_autentica)}</td>
+          <td class="num muted">{formatear(r.variable, r.tipico_falsa)}</td>
+          <td class="num text-{clase}">{r.aporte:+.4f}</td>
+          <td><span class="badge small bg-{clase}-soft text-{clase}">{r.empuja_hacia}</span></td>
+        </tr>''')
+    return f'''
+    <table class="detail-table">
+      <thead><tr><th>Variable</th><th>Valor</th><th>Típico autént.</th><th>Típico falsa</th>
+      <th>Aporte SHAP</th><th>Empuja hacia</th></tr></thead>
+      <tbody>{''.join(filas)}</tbody>
+    </table>
+    '''
+
+
+def render_resumen_lote(nombre, total, n_falsas, n_autenticas):
+    pct_f = (n_falsas / total * 100) if total else 0.0
+    pct_a = (n_autenticas / total * 100) if total else 0.0
+    return f'''
+    <div class="batch-row"><span>Último análisis</span><b class="truncate">{nombre}</b></div>
+    <div class="batch-row"><span>Cuentas analizadas</span><b>{total}</b></div>
+    <div class="batch-row"><span>Auténticas</span><b class="text-success">{n_autenticas} ({pct_a:.1f}%)</b></div>
+    <div class="batch-row"><span>Falsas</span><b class="text-danger">{n_falsas} ({pct_f:.1f}%)</b></div>
+    '''
+
+
+def render_tabla_lote(salida, columnas):
+    encabezados = ''.join(f'<th>{c}</th>' for c in columnas)
+    filas = []
+    for _, fila in salida[columnas].head(100).iterrows():
+        celdas = []
+        for c in columnas:
+            valor = fila[c]
+            if c == 'veredicto' or c == 'etiqueta_real':
+                clase = 'danger' if valor == 'FALSA' else 'success'
+                celdas.append(f'<td><span class="badge small bg-{clase}-soft text-{clase}">{valor}</span></td>')
+            else:
+                celdas.append(f'<td class="num">{valor}</td>')
+        filas.append(f'<tr>{"".join(celdas)}</tr>')
+    return f'''
+    <table class="detail-table">
+      <thead><tr>{encabezados}</tr></thead>
+      <tbody>{''.join(filas)}</tbody>
+    </table>
+    '''
+
+
+# ============================================================================
+# 5. Funcion principal de clasificacion (UC1 + UC2 + UC3)
+# ============================================================================
+
+N_DESTACADAS = 5
+
+
+def analizar(valores):
+    """Devuelve un dict con todos los fragmentos HTML que consume el frontend."""
     errores, advertencias = validar(valores)
     if errores:
-        lista = ''.join(f'<li>{e}</li>' for e in errores)
-        vacio = pd.DataFrame(columns=['modelo', 'probabilidad', 'clasifica_como'])
-        return TARJETA_ERROR.format(lista=lista), vacio, None, pd.DataFrame(), ''
+        return {'valido': False, 'veredicto_html': render_error(errores),
+                'gauge_html': ESTADO_VACIO, 'consenso_html': ESTADO_VACIO,
+                'features_html': ESTADO_VACIO, 'percentiles_html': ESTADO_VACIO,
+                'tabla_html': ''}
 
     fila, fila_esc = preprocesar(valores)
 
     votos = []
     for clave, info in MODELOS.items():
         p = probabilidad(clave, fila, fila_esc)
-        votos.append({'modelo': info['nombre'], 'probabilidad': round(p, 4),
-                      'umbral': round(info['umbral'], 4),
-                      'clasifica_como': 'FALSA' if p >= info['umbral'] else 'AUTENTICA'})
-    tabla_votos = pd.DataFrame(votos).sort_values('probabilidad', ascending=False)
+        votos.append({'clave': clave, 'nombre': info['nombre'], 'probabilidad': p,
+                      'umbral': info['umbral'],
+                      'etiqueta': 'FALSA' if p >= info['umbral'] else 'AUTENTICA'})
 
-    p_principal = next(v['probabilidad'] for v in votos
-                       if v['modelo'] == MODELOS[PRINCIPAL]['nombre'])
-    etiqueta = 'CUENTA FALSA' if p_principal >= UMBRAL else 'CUENTA AUTENTICA'
-    margen = abs(p_principal - UMBRAL)
+    p_falsa = next(v['probabilidad'] for v in votos if v['clave'] == PRINCIPAL)
+    margen = abs(p_falsa - UMBRAL)
     confianza = nivel_confianza(margen)
-    coinciden = sum(1 for v in votos
-                    if v['clasifica_como'] == ('FALSA' if p_principal >= UMBRAL else 'AUTENTICA'))
+    etiqueta = 'FALSA' if p_falsa >= UMBRAL else 'AUTENTICA'
+    coinciden = sum(1 for v in votos if v['etiqueta'] == etiqueta)
 
-    tarjeta = TARJETA.format(
-        fondo='#FDECEA' if p_principal >= UMBRAL else '#EAF7EF',
-        borde='#C0392B' if p_principal >= UMBRAL else '#27AE60',
-        etiqueta=etiqueta, prob=p_principal, umbral=UMBRAL,
-        confianza=confianza, consenso=coinciden, total=len(votos),
-        aviso=AVISO_DUDA if confianza == 'BAJA' else '',
-    )
+    p_autentica = 1 - p_falsa
+    umbral_autentica = 1 - UMBRAL
+    prob_mostrada = p_autentica if etiqueta == 'AUTENTICA' else p_falsa
+    umbral_mostrado = umbral_autentica if etiqueta == 'AUTENTICA' else UMBRAL
 
     aportes = aportes_shap(fila)
-    tabla_exp = pd.DataFrame({
+    tabla = pd.DataFrame({
         'variable': VARIABLES,
         'descripcion': [DICCIONARIO[v] for v in VARIABLES],
         'valor': fila.values[0],
-        'mediana_autenticas': REFERENCIA['mediana_autenticas'].values,
-        'mediana_falsas': REFERENCIA['mediana_falsas'].values,
+        'tipico_autentica': MEDIANA_AUT.values,
+        'tipico_falsa': MEDIANA_FAL.values,
         'aporte': np.round(aportes, 4),
     })
-    tabla_exp['empuja_hacia'] = np.where(tabla_exp['aporte'] > 0, 'FALSA', 'AUTENTICA')
-    tabla_exp = tabla_exp.reindex(tabla_exp['aporte'].abs().sort_values(ascending=False).index)
-    top = tabla_exp.head(8).reset_index(drop=True)
+    tabla['empuja_hacia'] = np.where(tabla['aporte'] > 0, 'FALSA', 'AUTENTICA')
+    tabla = tabla.reindex(tabla['aporte'].abs().sort_values(ascending=False).index).reset_index(drop=True)
+    top = tabla.head(N_DESTACADAS)
 
-    figura = figura_aportes(top[['variable', 'valor', 'aporte']])
+    return {
+        'valido': True,
+        'veredicto_html': render_veredicto(etiqueta, prob_mostrada, umbral_mostrado, confianza,
+                                           coinciden, len(votos), advertencias),
+        'gauge_html': render_gauge(p_autentica, umbral_autentica, confianza, margen),
+        'consenso_html': render_consenso(votos, etiqueta),
+        'features_html': render_features(top),
+        'percentiles_html': render_percentiles(top),
+        'tabla_html': render_tabla_detalle(tabla),
+    }
 
-    texto_avisos = ''
-    if advertencias:
-        texto_avisos = '**Advertencias sobre los datos ingresados**\n\n' + \
-                       '\n'.join(f'- {a}' for a in advertencias)
 
-    return tarjeta, tabla_votos, figura, top.round(4), texto_avisos
-
-
-# --- Cuentas de ejemplo tomadas del conjunto de prueba -----------------------
+# --- Cuentas de ejemplo del conjunto de prueba ------------------------------
 
 def _probabilidades_muestra(n=400):
     fila = X_test.head(n).reset_index(drop=True)
@@ -365,40 +618,19 @@ def _probabilidades_muestra(n=400):
 
 
 _PROBS = _probabilidades_muestra()
-EJEMPLOS = {
-    'falsa': int(np.argmax(_PROBS)),
-    'autentica': int(np.argmin(_PROBS)),
-    'dudosa': int(np.argmin(np.abs(_PROBS - UMBRAL))),
-}
+EJEMPLOS = {'falsa': int(np.argmax(_PROBS)),
+            'autentica': int(np.argmin(_PROBS)),
+            'dudosa': int(np.argmin(np.abs(_PROBS - UMBRAL)))}
 
 
-def cargar_ejemplo(tipo):
-    i = EJEMPLOS[tipo]
-    fila = X_test.iloc[i]
-    real = 'FALSA' if y_test[i] == 1 else 'AUTENTICA'
-    nota = (f'Cuenta #{i} del conjunto de prueba cargada en el formulario. '
-            f'Etiqueta real registrada en el dataset: **{real}**. '
-            'Presione "Analizar cuenta" para ver la respuesta del sistema.')
-    return [float(fila[v]) for v in VARIABLES] + [nota]
+# --- Analisis por lotes -----------------------------------------------------
 
-
-def limpiar():
-    return [0.0 for _ in VARIABLES] + ['Formulario limpio.']
-
-
-# --- Analisis por lotes ------------------------------------------------------
-
-def analizar_archivo(archivo):
-    if archivo is None:
-        return pd.DataFrame(), None, 'Seleccione un archivo CSV.'
-    try:
-        df = pd.read_csv(archivo.name if hasattr(archivo, 'name') else archivo)
-    except Exception as exc:
-        return pd.DataFrame(), None, f'No se pudo leer el archivo: {exc}'
+def analizar_archivo(archivo_storage):
+    df = pd.read_csv(archivo_storage)
 
     faltan = [v for v in VARIABLES if v not in df.columns]
     if faltan:
-        return pd.DataFrame(), None, f'Faltan columnas en el archivo: {", ".join(faltan)}'
+        raise ValueError(f'Faltan columnas en el archivo: {", ".join(faltan)}')
 
     fila = df[VARIABLES].astype(float).reset_index(drop=True)
     fila_log = fila.copy()
@@ -418,127 +650,123 @@ def analizar_archivo(archivo):
     columnas_clase = [f'clase_{k}' for k in MODELOS]
     salida['votos_falsa'] = (salida[columnas_clase] == 'FALSA').sum(axis=1)
     salida['veredicto'] = salida[f'clase_{PRINCIPAL}']
+
+    n_falsas = int((salida['veredicto'] == 'FALSA').sum())
+    n_total = len(salida)
+    n_autenticas = n_total - n_falsas
     if 'class' in df.columns:
-        salida['etiqueta_real'] = np.where(df['class'].astype(str).str.lower().str[0] == 'f',
-                                           'FALSA', 'AUTENTICA')
+        salida['etiqueta_real'] = np.where(
+            df['class'].astype(str).str.lower().str[0] == 'f', 'FALSA', 'AUTENTICA')
         aciertos = (salida['veredicto'] == salida['etiqueta_real']).mean()
-        resumen = (f'{len(salida)} cuentas analizadas. '
-                   f'{int((salida.veredicto == "FALSA").sum())} clasificadas como falsas. '
-                   f'Coincidencia con la etiqueta real del archivo: {aciertos:.1%}.')
+        resumen = (f'{n_total} cuentas analizadas · {n_falsas} clasificadas como falsas · '
+                   f'coincidencia con la etiqueta real del archivo: {aciertos:.1%}')
     else:
-        resumen = (f'{len(salida)} cuentas analizadas. '
-                   f'{int((salida.veredicto == "FALSA").sum())} clasificadas como falsas.')
+        resumen = f'{n_total} cuentas analizadas · {n_falsas} clasificadas como falsas'
 
     destino = os.path.join(RUTA_RES, 'resultado_lote.csv')
     salida.to_csv(destino, index=False)
 
-    columnas_vista = ['veredicto', 'votos_falsa', f'prob_{PRINCIPAL}'] + \
-                     (['etiqueta_real'] if 'etiqueta_real' in salida.columns else [])
-    return salida[columnas_vista].head(100), destino, resumen
+    vista = ['veredicto', 'votos_falsa', f'prob_{PRINCIPAL}'] + \
+            (['etiqueta_real'] if 'etiqueta_real' in salida.columns else [])
+
+    return {
+        'ok': True,
+        'resumen_texto': resumen,
+        'resumen_html': render_resumen_lote(os.path.basename(archivo_storage.filename or 'archivo.csv'),
+                                            n_total, n_falsas, n_autenticas),
+        'tabla_html': render_tabla_lote(salida, vista),
+        'descarga_url': '/api/descarga',
+    }
 
 
-# ----------------------------------------------------------------------------
-# 5. Construccion de la interfaz
-# ----------------------------------------------------------------------------
+# ============================================================================
+# 6. Aplicacion Flask
+# ============================================================================
 
-ACERCA = f"""
-### Sistema de clasificacion de cuentas de Instagram
+app = Flask(__name__)
 
-Clasifica una cuenta como **autentica** o **falsa** a partir de 17 atributos publicos de perfil,
-comportamiento y engagement, usando modelos de aprendizaje automatico supervisado entrenados
-desde cero sobre el conjunto de Purba, Asirvatham y Murugesan (IJECE, 2020).
+ACERCA_HTML = f'''
+<h3>Sistema de clasificación de cuentas de Instagram</h3>
+<p>Clasifica una cuenta como <b>auténtica</b> o <b>falsa</b> a partir de 17 atributos públicos de
+perfil, comportamiento y engagement, usando cinco modelos de aprendizaje automático supervisado
+entrenados desde cero sobre el conjunto de Purba, Asirvatham y Murugesan (IJECE, 2020):
+64&nbsp;244 cuentas tras limpieza, partición estratificada 80/20.</p>
+<p><b>Modelo principal: {MODELOS[PRINCIPAL]['nombre']}</b> (umbral de decisión {UMBRAL:.4f}).
+Empata estadísticamente en F1 con Random Forest según la prueba de McNemar (p&nbsp;=&nbsp;0.451),
+pero produce menos falsos negativos —el error más costoso según el objetivo del proyecto— y permite
+explicar cada decisión individual de forma inmediata. La interfaz consulta igualmente los cinco
+modelos.</p>
+<p><b>Modelos consultados:</b> {', '.join(m['nombre'] for m in MODELOS.values())}.</p>
+<h4>Cómo leer el resultado</h4>
+<ul>
+  <li>La probabilidad mostrada es la de la clase que ganó el veredicto, comparada contra el umbral
+      propio de cada modelo (ajustado por curva precisión-recall, no el 0.5 por defecto).</li>
+  <li>El nivel de confianza mide la distancia entre la probabilidad y ese umbral. Confianza
+      <b>baja</b> significa que la cuenta cae en zona ambigua y conviene revisarla manualmente.</li>
+  <li>Las señales indican cuánto empujó cada atributo hacia cada clase <b>para esa cuenta
+      concreta</b>, no en promedio, y se contrastan con el perfil típico de cada clase.</li>
+</ul>
+<h4>Limitación declarada</h4>
+<p>El conjunto de entrenamiento es de 2020. Una cuenta con valores muy por encima de los máximos
+observados entonces cae fuera del rango aprendido; en ese caso la interfaz emite una advertencia,
+porque la predicción es una extrapolación.</p>
+<p class="muted">Grupo N.4 — CCPG1044 Inteligencia Artificial — ESPOL</p>
+'''
 
-**Modelo principal:** {MODELOS[PRINCIPAL]['nombre']} (umbral de decision {UMBRAL:.4f}).
-Se eligio porque empata estadisticamente con el mejor F1 segun la prueba de McNemar, produce menos
-falsos negativos —el error mas costoso para el objetivo del proyecto— y permite explicar cada
-decision individual con SHAP de forma inmediata.
 
-**Modelos consultados:** {', '.join(m['nombre'] for m in MODELOS.values())}.
+@app.route('/')
+def index():
+    grupos = [{'icono': i, 'titulo': t, 'subtitulo': s,
+              'campos': [{'clave': v, 'descripcion': DICCIONARIO[v],
+                         'valor': float(X_train[v].median())} for v in claves]}
+             for i, t, s, claves in GRUPOS]
+    return render_template('index.html', grupos=grupos, variables=VARIABLES,
+                           modelo_principal=MODELOS[PRINCIPAL]['nombre'],
+                           modelos_count=len(MODELOS), acerca_html=ACERCA_HTML)
 
-**Como leer el resultado**
 
-- La probabilidad se compara contra el umbral del modelo, ajustado para maximizar el F1 sobre la
-  clase falsa; no es el 0.5 por defecto.
-- El nivel de confianza mide la distancia entre la probabilidad y ese umbral. Confianza *baja*
-  significa que la cuenta cae en una zona ambigua y conviene revisarla manualmente.
-- El grafico de aportes indica cuanto empujo cada atributo hacia cada clase **para esa cuenta**,
-  no en promedio.
+@app.route('/api/analizar', methods=['POST'])
+def api_analizar():
+    valores = request.get_json(force=True)
+    resultado = analizar(valores)
+    return jsonify(resultado)
 
-**Limitacion declarada:** el conjunto de entrenamiento es de 2020. Una cuenta con valores muy por
-encima de los maximos observados entonces cae fuera del rango aprendido; en ese caso la interfaz
-emite una advertencia porque la prediccion es una extrapolacion.
 
-Grupo N.4 — CCPG1044 Inteligencia Artificial — ESPOL
-"""
+@app.route('/api/ejemplo/<tipo>')
+def api_ejemplo(tipo):
+    if tipo not in EJEMPLOS:
+        return jsonify({'error': 'tipo invalido'}), 400
+    i = EJEMPLOS[tipo]
+    fila = X_test.iloc[i]
+    return jsonify({'valores': {v: float(fila[v]) for v in VARIABLES}})
 
-with gr.Blocks(title='Clasificador de cuentas de Instagram',
-               theme=gr.themes.Soft(primary_hue='indigo')) as demo:
 
-    gr.Markdown(
-        '# Clasificador de cuentas de Instagram\n'
-        'Determina si una cuenta es **autentica** o **falsa** a partir de sus atributos publicos, '
-        'y muestra las variables que sustentan cada decision.'
-    )
+@app.route('/api/medianas')
+def api_medianas():
+    return jsonify({'valores': {v: float(X_train[v].median()) for v in VARIABLES}})
 
-    with gr.Tab('Analizar una cuenta'):
-        with gr.Row():
-            with gr.Column(scale=3):
-                gr.Markdown('### Atributos de la cuenta')
-                campos = []
-                for inicio in range(0, len(VARIABLES), 3):
-                    with gr.Row():
-                        for v in VARIABLES[inicio:inicio + 3]:
-                            campos.append(gr.Number(
-                                value=float(X_train[v].median()),
-                                label=f'{v} — {DICCIONARIO[v]}',
-                                precision=None,
-                            ))
-                with gr.Row():
-                    boton_analizar = gr.Button('Analizar cuenta', variant='primary', scale=2)
-                    boton_limpiar = gr.Button('Limpiar', scale=1)
-                gr.Markdown('**Cargar una cuenta real del conjunto de prueba:**')
-                with gr.Row():
-                    boton_falsa = gr.Button('Ejemplo de cuenta falsa')
-                    boton_autentica = gr.Button('Ejemplo de cuenta autentica')
-                    boton_dudosa = gr.Button('Ejemplo ambiguo')
-                nota_ejemplo = gr.Markdown('')
 
-            with gr.Column(scale=2):
-                salida_tarjeta = gr.HTML()
-                salida_avisos = gr.Markdown('')
-                gr.Markdown('### Veredicto de cada modelo')
-                salida_votos = gr.Dataframe(interactive=False, wrap=True)
+@app.route('/api/lote', methods=['POST'])
+def api_lote():
+    archivo = request.files.get('archivo')
+    if archivo is None or archivo.filename == '':
+        return jsonify({'ok': False, 'mensaje': 'Selecciona un archivo CSV.'}), 400
+    try:
+        resultado = analizar_archivo(archivo)
+        return jsonify(resultado)
+    except Exception as exc:
+        return jsonify({'ok': False, 'mensaje': f'No se pudo procesar el archivo: {exc}'}), 400
 
-        gr.Markdown('### Explicacion de la decision')
-        with gr.Row():
-            salida_figura = gr.Plot(label='Aporte de cada variable')
-            salida_tabla = gr.Dataframe(label='Detalle de las variables mas influyentes',
-                                        interactive=False, wrap=True)
 
-        salidas = [salida_tarjeta, salida_votos, salida_figura, salida_tabla, salida_avisos]
-        boton_analizar.click(analizar, inputs=campos, outputs=salidas)
-        boton_limpiar.click(limpiar, inputs=None, outputs=campos + [nota_ejemplo])
-        boton_falsa.click(lambda: cargar_ejemplo('falsa'), None, campos + [nota_ejemplo])
-        boton_autentica.click(lambda: cargar_ejemplo('autentica'), None, campos + [nota_ejemplo])
-        boton_dudosa.click(lambda: cargar_ejemplo('dudosa'), None, campos + [nota_ejemplo])
-
-    with gr.Tab('Analizar un archivo'):
-        gr.Markdown(
-            'Cargue un archivo CSV con las 17 columnas de atributos '
-            f'(`{", ".join(VARIABLES)}`). Si incluye la columna `class`, la interfaz reporta '
-            'ademas el porcentaje de coincidencia con la etiqueta real.'
-        )
-        entrada_archivo = gr.File(label='Archivo CSV', file_types=['.csv'])
-        boton_lote = gr.Button('Analizar archivo', variant='primary')
-        resumen_lote = gr.Markdown('')
-        tabla_lote = gr.Dataframe(label='Resultados (primeras 100 filas)', interactive=False)
-        descarga_lote = gr.File(label='Descargar resultados completos')
-        boton_lote.click(analizar_archivo, inputs=entrada_archivo,
-                         outputs=[tabla_lote, descarga_lote, resumen_lote])
-
-    with gr.Tab('Acerca del sistema'):
-        gr.Markdown(ACERCA)
+@app.route('/api/descarga')
+def api_descarga():
+    destino = os.path.join(RUTA_RES, 'resultado_lote.csv')
+    if not os.path.exists(destino):
+        return jsonify({'error': 'Aun no hay resultados generados.'}), 404
+    return send_file(destino, as_attachment=True, download_name='resultado_lote.csv')
 
 
 if __name__ == '__main__':
-    demo.launch(share=ARGS.publica, server_port=ARGS.puerto, inbrowser=not ARGS.publica)
+    host = '0.0.0.0' if ARGS.publica else '127.0.0.1'
+    print(f'Abriendo en http://{"localhost" if not ARGS.publica else "0.0.0.0"}:{ARGS.puerto}')
+    app.run(host=host, port=ARGS.puerto, debug=False)

@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Clasificador de cuentas de Instagram</title>
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<div class="page">
+
+  <header class="app-header">
+    <div class="app-header-left">
+      <div class="app-logo">📷</div>
+      <div>
+        <div class="app-title">Clasificador de cuentas de Instagram</div>
+        <div class="app-subtitle">Detecta si una cuenta es auténtica o falsa usando IA y datos públicos.</div>
+      </div>
+    </div>
+    <div class="app-badge">🎓 Proyecto de IA<span>ESPOL — Grupo N.4</span></div>
+  </header>
+
+  <nav class="tabs">
+    <button class="tab-btn active" data-tab="cuenta">🔍 Analizar una cuenta</button>
+    <button class="tab-btn" data-tab="archivo">📄 Analizar un archivo</button>
+    <button class="tab-btn" data-tab="acerca">ℹ️ Acerca del sistema</button>
+  </nav>
+
+  <!-- ===================== TAB: Analizar una cuenta ===================== -->
+  <section id="tab-cuenta" class="tab-panel active">
+
+    <div class="section-title-plain">⚡ Demo rápida</div>
+    <div class="section-caption-plain">Prueba ejemplos típicos con un clic</div>
+    <div class="demo-row">
+      <button class="demo-btn demo-btn-danger" data-ejemplo="falsa">
+        <span class="demo-icon">🚩</span>
+        <span><b>Cuenta falsa clara</b><br><small>Ejemplo de cuenta falsa</small></span>
+      </button>
+      <button class="demo-btn demo-btn-success" data-ejemplo="autentica">
+        <span class="demo-icon">✅</span>
+        <span><b>Cuenta auténtica clara</b><br><small>Ejemplo de cuenta auténtica</small></span>
+      </button>
+      <button class="demo-btn demo-btn-warning" data-ejemplo="dudosa">
+        <span class="demo-icon">❓</span>
+        <span><b>Caso ambiguo</b><br><small>Ejemplo de caso dudoso</small></span>
+      </button>
+    </div>
+
+    <div class="main-grid">
+      <div class="main-col">
+        <div class="section-title-plain">Resultado del análisis</div>
+        <div class="section-caption-plain">Basado en {{ modelos_count }} modelos de aprendizaje automático</div>
+
+        <div class="result-row">
+          <div id="veredicto">
+            <div class="empty-state">
+              <div class="empty-icon">🔍</div>
+              <div>Completa los datos de la cuenta y presiona <b>Analizar cuenta</b>,
+              o prueba un ejemplo rápido arriba.</div>
+            </div>
+          </div>
+          <div id="gauge"></div>
+        </div>
+
+        <div id="consenso"></div>
+
+        <div class="result-row">
+          <div id="features"></div>
+          <div id="percentiles"></div>
+        </div>
+
+        <details class="detail-accordion">
+          <summary>Detalle ampliado — las 17 variables</summary>
+          <div class="card" id="tabla-detalle-wrap"><div id="tabla-detalle" class="table-scroll"></div></div>
+        </details>
+      </div>
+
+      <aside class="sidebar-col">
+        <div class="card">
+          <div class="sidebar-title">✍️ Ingresar datos manualmente</div>
+          <div class="sidebar-desc">Completa los 17 atributos de la cuenta.</div>
+
+          <form id="form-cuenta">
+            {% for g in grupos %}
+            <details class="input-accordion" {{ 'open' if loop.first else '' }}>
+              <summary>{{ g.icono }}&nbsp; {{ g.titulo }} ({{ g.campos|length }}) · {{ g.subtitulo }}</summary>
+              <div class="input-group">
+                {% for c in g.campos %}
+                <label class="field-label">{{ c.clave }} — {{ c.descripcion }}
+                  <input type="number" step="any" name="{{ c.clave }}" value="{{ c.valor }}">
+                </label>
+                {% endfor %}
+              </div>
+            </details>
+            {% endfor %}
+          </form>
+
+          <button id="btn-analizar" class="btn-primary btn-block">⚡ Analizar cuenta</button>
+          <div class="btn-row">
+            <button id="btn-medianas" class="btn-secondary">Valores típicos</button>
+            <button id="btn-limpiar" class="btn-secondary">Limpiar</button>
+          </div>
+        </div>
+
+        <div class="sidebar-link">¿Tienes muchas cuentas?</div>
+        <button id="btn-ir-archivo" class="btn-outline btn-block">📄 Ir a Analizar un archivo</button>
+
+        <div class="card">
+          <div class="sidebar-title">🗂️ Análisis de archivos (resumen)</div>
+          <div id="resumen-lote-sidebar">{{ '<div class="empty-state small">Aún no se ha analizado ningún archivo por lotes.</div>' | safe }}</div>
+          <button id="btn-ver-completo" class="btn-outline btn-block">👁️ Ver resultados completos</button>
+          <a id="btn-descarga-sidebar" class="btn-outline btn-block" style="display:none">⬇️ Descargar resultados (CSV)</a>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ===================== TAB: Analizar un archivo ===================== -->
+  <section id="tab-archivo" class="tab-panel">
+    <div class="card">
+      <div class="section-title">Analizar un archivo CSV</div>
+      <div class="section-caption">
+        Carga un archivo con las 17 columnas de atributos ({{ variables|join(', ') }}).
+        Si incluye la columna <code>class</code> con la etiqueta real, la interfaz reporta además
+        el porcentaje de coincidencia.
+      </div>
+      <div class="file-row">
+        <input type="file" id="input-archivo" accept=".csv">
+        <button id="btn-analizar-archivo" class="btn-primary">Analizar archivo</button>
+      </div>
+      <p id="resumen-lote-texto" class="muted"></p>
+      <div id="tabla-lote" class="table-scroll"></div>
+    </div>
+  </section>
+
+  <!-- ===================== TAB: Acerca del sistema ===================== -->
+  <section id="tab-acerca" class="tab-panel">
+    <div class="card about-card">{{ acerca_html | safe }}</div>
+  </section>
+
+</div>
+<script src="{{ url_for('static', filename='app.js') }}"></script>
+</body>
+</html>
