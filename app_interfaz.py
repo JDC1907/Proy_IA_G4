@@ -131,6 +131,13 @@ VARS_ENTERAS = ['pos', 'flw', 'flg', 'bl', 'pic', 'lin']
 VARS_BINARIAS = ['pic', 'lin']
 VARS_PROPORCION = ['pic', 'lin', 'cz', 'ni', 'lt', 'cs']
 
+# Incremento sugerido por boton +/- de cada campo numerico (no aplica a las binarias)
+PASO_CAMPO = {
+    'pos': 1, 'flw': 10, 'flg': 10, 'bl': 1, 'cl': 5,
+    'cz': 0.05, 'ni': 0.05, 'erl': 0.5, 'erc': 0.1, 'lt': 0.05,
+    'hc': 0.1, 'pr': 0.05, 'fo': 0.05, 'cs': 0.05, 'pi': 5,
+}
+
 MEDIANA_AUT = X_train[y_train == 0].median()
 MEDIANA_FAL = X_train[y_train == 1].median()
 ORDENADOS_AUT = {v: np.sort(X_train.loc[y_train == 0, v].values) for v in VARIABLES}
@@ -714,11 +721,22 @@ porque la predicción es una extrapolación.</p>
 '''
 
 
+def _campo(v):
+    binaria = v in VARS_BINARIAS
+    proporcion = v in VARS_PROPORCION and not binaria
+    return {
+        'clave': v,
+        'descripcion': DICCIONARIO[v],
+        'valor': int(X_train[v].median()) if binaria else float(X_train[v].median()),
+        'binaria': binaria,
+        'paso': PASO_CAMPO.get(v, 1),
+        'max': 1 if proporcion else None,
+    }
+
+
 @app.route('/')
 def index():
-    grupos = [{'icono': i, 'titulo': t, 'subtitulo': s,
-              'campos': [{'clave': v, 'descripcion': DICCIONARIO[v],
-                         'valor': float(X_train[v].median())} for v in claves]}
+    grupos = [{'icono': i, 'titulo': t, 'subtitulo': s, 'campos': [_campo(v) for v in claves]}
              for i, t, s, claves in GRUPOS]
     return render_template('index.html', grupos=grupos, variables=VARIABLES,
                            modelo_principal=MODELOS[PRINCIPAL]['nombre'],

@@ -79,6 +79,10 @@
         <div class="card">
           <div class="sidebar-title">✍️ Ingresar datos manualmente</div>
           <div class="sidebar-desc">Completa los 17 atributos de la cuenta.</div>
+          <div class="accordion-toolbar">
+            <button type="button" id="btn-expandir-todo" class="link-btn">Expandir todo</button>
+            <button type="button" id="btn-colapsar-todo" class="link-btn">Colapsar todo</button>
+          </div>
 
           <form id="form-cuenta">
             {% for g in grupos %}
@@ -86,9 +90,24 @@
               <summary>{{ g.icono }}&nbsp; {{ g.titulo }} ({{ g.campos|length }}) · {{ g.subtitulo }}</summary>
               <div class="input-group">
                 {% for c in g.campos %}
-                <label class="field-label">{{ c.clave }} — {{ c.descripcion }}
-                  <input type="number" step="any" name="{{ c.clave }}" value="{{ c.valor }}">
-                </label>
+                  {% if c.binaria %}
+                  <div class="field-label">{{ c.clave }} — {{ c.descripcion }}
+                    <div class="toggle-group" data-name="{{ c.clave }}">
+                      <button type="button" class="toggle-btn {{ 'active' if c.valor == 1 else '' }}" data-valor="1">Sí</button>
+                      <button type="button" class="toggle-btn {{ 'active' if c.valor == 0 else '' }}" data-valor="0">No</button>
+                    </div>
+                    <input type="hidden" name="{{ c.clave }}" value="{{ c.valor }}">
+                  </div>
+                  {% else %}
+                  <label class="field-label">{{ c.clave }} — {{ c.descripcion }}
+                    <div class="stepper">
+                      <button type="button" class="step-btn" data-dir="-1" aria-label="Disminuir">−</button>
+                      <input type="number" step="any" name="{{ c.clave }}" value="{{ c.valor }}"
+                             data-paso="{{ c.paso }}" min="0" {% if c.max %}max="{{ c.max }}"{% endif %}>
+                      <button type="button" class="step-btn" data-dir="1" aria-label="Aumentar">+</button>
+                    </div>
+                  </label>
+                  {% endif %}
                 {% endfor %}
               </div>
             </details>

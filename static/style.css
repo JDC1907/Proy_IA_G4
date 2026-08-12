@@ -159,12 +159,39 @@ details[open] summary::after { transform: rotate(180deg); }
 .input-group { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 12px; margin-top: 12px; }
 @media (max-width: 420px) { .input-group { grid-template-columns: 1fr; } }
 
+.accordion-toolbar { display: flex; gap: 14px; margin: 2px 0 6px; }
+.link-btn { background: none; border: none; padding: 0; font-family: inherit; font-size: 11.5px;
+  font-weight: 700; color: var(--primary); cursor: pointer; }
+.link-btn:hover { color: var(--primary-dark); text-decoration: underline; }
+
 /* ---------- Formulario ---------- */
 .field-label { display: flex; flex-direction: column; gap: 4px; font-size: 11px; color: var(--muted);
   font-weight: 600; }
-.field-label input { border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px;
-  font-size: 13px; font-family: inherit; color: var(--text); background: #fff; }
+.field-label input[type=number] { border: 1px solid var(--border); border-radius: 8px; padding: 7px 9px;
+  font-size: 13px; font-family: inherit; color: var(--text); background: #fff; width: 100%;
+  min-width: 0; text-align: center; }
 .field-label input:focus { outline: 2px solid var(--primary); outline-offset: 1px; }
+.field-label input.input-error { border-color: var(--danger); background: var(--danger-bg); }
+
+/* Botones +/- para campos numericos */
+.stepper { display: flex; align-items: stretch; }
+.stepper input[type=number] { border-radius: 0; border-left: none; border-right: none;
+  -moz-appearance: textfield; }
+.stepper input[type=number]::-webkit-outer-spin-button,
+.stepper input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.step-btn { flex: 0 0 26px; border: 1px solid var(--border); background: #F3F4F6; color: var(--text);
+  font-size: 15px; font-weight: 700; cursor: pointer; line-height: 1; }
+.step-btn:first-child { border-radius: 8px 0 0 8px; }
+.step-btn:last-child { border-radius: 0 8px 8px 0; }
+.step-btn:hover { background: #E7E9F0; }
+.step-btn:active { background: var(--primary); color: #fff; }
+
+/* Botones Si/No para campos binarios */
+.toggle-group { display: flex; gap: 6px; }
+.toggle-btn { flex: 1; border: 1px solid var(--border); background: #fff; color: var(--muted);
+  font-family: inherit; font-size: 12.5px; font-weight: 700; padding: 7px 0; border-radius: 8px; cursor: pointer; }
+.toggle-btn:hover { background: #F3F4F6; }
+.toggle-btn.active { background: var(--primary); border-color: var(--primary); color: #fff; }
 
 /* ---------- Botones ---------- */
 .btn-primary, .btn-secondary, .btn-outline {
