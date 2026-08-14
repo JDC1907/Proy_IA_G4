@@ -88,7 +88,7 @@ porcentaje de coincidencia con la etiqueta real. Puede probarse directamente con
 
 | Caso de uso | Implementación |
 |---|---|
-| **UC1** — Cargar datos de la cuenta | Formulario con validación de tipo y rango; el flujo alterno muestra los errores y solicita corrección antes de clasificar |
+| **UC1** — Cargar datos de la cuenta | Formulario con validación de tipo y rango; el flujo alterno muestra los errores y solicita resultados de radom forestcorrección antes de clasificar |
 | **UC2** — Clasificar la cuenta | Clasificación con los cinco modelos; el flujo alterno reporta confianza baja cuando la probabilidad queda cerca del umbral |
 | **UC3** — Visualizar resultado y variables influyentes | Gráfico de aportes SHAP por variable y tabla de detalle ampliado |
 
